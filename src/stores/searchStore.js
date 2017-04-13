@@ -10,21 +10,21 @@ export default class SearchStore {
   @observable query = '';
   @observable tracks = [];
 
-  get query() {
-    return this.query;
-  }
+  // get query() {
+  //   return this.query;
+  // }
 
-  set query(artist: string) {
-    this.query = artist;
-  }
+  // set query(artist: string) {
+  //   this.query = artist;
+  // }
 
-  get tracks() {
-    return this.tracks;
-  }
+  // get tracks() {
+  //   return this.tracks;
+  // }
 
-  set tracks(result: Array<Object>) {
-    this.tracks = result;
-  }
+  // set tracks(result: Array<Object>) {
+  //   this.tracks = result;
+  // }
 
   async getTrackList(query: string) {
     if (!query) {

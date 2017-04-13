@@ -15,6 +15,10 @@
      "jest": true
    },
    "rules": {
+     "no-return-assign": 0,
+     "func-names": 0,
+     "no-shadow": 0,
+     "no-param-reassign": 0,
      "generator-star-spacing": 0,
      "babel/generator-star-spacing": ["error", { before: false, after: true }],
      "babel/new-cap": ["error", { "capIsNew": false, "newIsCap": true }],
@@ -29,6 +33,7 @@
      "import/prefer-default-export": 0,
      "new-parens": 0,
      "global-require": 0,
+     "react/no-multi-comp": 0,
      "react/jsx-no-bind": 0,
      "react/jsx-uses-react": 1,
      "react/require-default-props": 0,
@@ -36,7 +41,7 @@
      "react/prefer-stateless-function": 0,
      "react/jsx-filename-extension": [1, { "extensions": [".js", ".jsx"] }],
      "no-constant-condition": 0,
-     "no-console": 2,
+     "no-console": 0,
      "new-cap": [2, {"capIsNew": false, "newIsCap": true}], // For Record() etc.
      "default-case": 0,
      "no-use-before-define": 0,

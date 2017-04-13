@@ -2,11 +2,11 @@
 
 import React, { Component } from 'react';
 import { FlatList } from 'react-native';
-import { observable } from 'mobx';
 import { observer, inject } from 'mobx-react';
 import styled from 'styled-components/native';
 import debounce from 'lodash.debounce';
 
+import Test from '../components/Test';
 import SearchInput from '../components/SearchInput';
 import ListItem from '../components/ListItem';
 
@@ -24,25 +24,21 @@ const Container = styled.View`
 @observer
 export default class Home extends Component {
   props: Props;
-  @observable query = '';
 
   static navigationOptions = {
     title: 'Spotify songs',
   }
 
-  debounceInput = debounce((query) => { this.props.searchStore.getTrackList(query); }, 500);
-
-  onTextInputChange = (value: string) => {
-    this.query = value;
-    this.debounceInput(value);
-  }
+  _debouncedInput = debounce((query) => {
+    this.props.searchStore.getTrackList(query);
+  }, 500);
 
   render() {
     return (
       <Container>
+        <Test />
         <SearchInput
-          value={this.query}
-          onChangeText={(value) => { this.onTextInputChange(value); }}
+          onChangeText={this._debouncedInput}
           placeholder="Search..."
         />
         {this.props.searchStore.tracks && (

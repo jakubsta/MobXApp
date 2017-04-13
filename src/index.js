@@ -10,6 +10,8 @@ import Stack from './router';
 
 import stores from './stores';
 
+import './lib';
+
 export default class MobXApp extends Component {
   render() {
     return (
