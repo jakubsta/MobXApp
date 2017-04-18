@@ -30,7 +30,8 @@ function unsubscribe(store, property, listener) {
 
   const storedListeners = listeners.get(store);
   if (storedListeners[property]) {
-    storedListeners[property] = storedListeners.filter((f) => f !== listener);
+    storedListeners[property] = storedListeners[property]
+      .filter((f) => f !== listener);
   }
 }
 
@@ -49,35 +50,67 @@ function emit(store, property) {
   }
 }
 
-function getFunctionDeps(f) {
+function getFunctionDepsAndReturnValue(f) {
   const prevDeps = deps;
   const prevDepsDetecting = depsDetecting;
   deps = [];
   depsDetecting = true;
-  f();
+  const value = f();
 
   const newDeps = deps;
 
   deps = prevDeps;
   depsDetecting = prevDepsDetecting;
 
-  return newDeps;
+  return {
+    deps: newDeps,
+    returnValue: value,
+  };
+}
+
+function getFunctionDeps(f) {
+  return getFunctionDepsAndReturnValue(f).deps;
 }
 
 function isGetter(target, key) {
-  const descriptor = Object.getOwnPropertyDescriptor(
-    Object.getPrototypeOf(target),
-    key,
-  );
-  return descriptor && !!descriptor.get;
+  return !!getGetter(target, key);
 }
 
 function getGetter(target, key) {
-  const descriptor = Object.getOwnPropertyDescriptor(
-    Object.getPrototypeOf(target),
-    key,
-  );
-  return descriptor.get.bind(target);
+  const descriptor = Object.getOwnPropertyDescriptor(target, key);
+
+  if (descriptor) {
+    return descriptor.get;
+  }
+
+  const targetPrototype = Object.getPrototypeOf(target);
+  if (targetPrototype === null) {
+    return undefined;
+  }
+
+  return getGetter(targetPrototype, key);
+}
+
+function areTheSameDeps(deps0, deps1) {
+  return deps0 === deps1;
+}
+
+function smartNotify(f, callback) {
+  const { deps, returnValue } = getFunctionDepsAndReturnValue(f);
+
+  const resubscriber = () => {
+    const { deps: newDeps, returnValue } = getFunctionDepsAndReturnValue(f);
+    if (!areTheSameDeps(deps, newDeps)) {
+      unsubscribeMultiple(deps, resubscriber);
+      subscribeMultiple(newDeps, resubscriber);
+    }
+
+    callback(returnValue);
+  };
+
+  subscribeMultiple(deps, resubscriber);
+
+  return returnValue;
 }
 
 export function notify(f, callback) {
@@ -99,53 +132,43 @@ export function autorun(f) {
 }
 
 export function store(target) {
-  function reactiveStore(...args) {
-    const instance = target.apply(this, args);
+  return class extends target {
+    constructor(...args) {
+      super(...args);
 
-    const proxyToInstance = new Proxy(instance || this, {
-      set(target, key, value) {
-        target[key] = value;
-        emit(target, key);
-      },
-      get(target, key) {
-        if (depsDetecting) {
-          deps.push({ store: target, key });
-        }
+      const proxyToInstance = new Proxy(this, {
+        set(target, key, value) {
+          target[key] = value;
+          emit(target, key);
+        },
+        get(target, key) {
+          if (depsDetecting) {
+            deps.push({ store: target, key });
+          }
 
-        if (!isGetter(target, key)) {
-          return target[key];
-        }
+          if (!isGetter(target, key)) {
+            return target[key];
+          }
 
-        // Important pass proxy to spy!
-        const getter = getGetter(proxyToInstance, key);
-        if (depsDetecting) {
-          notify(
-            getter,
-            () => {
-              console.log('UPDATE CACHE');
-              target[Symbol.for(key)] = getter();
-              emit(target, key);
-            },
-          );
+          // Important pass proxy to spy!
+          const getter = getGetter(target, key).bind(proxyToInstance);
+          if (depsDetecting) {
+            const returnValue = smartNotify(
+              getter,
+              (value) => {
+                target[Symbol.for(key)] = value;
+                emit(target, key);
+              },
+            );
+            target[Symbol.for(key)] = returnValue;
+          }
 
-          const prevDepsDetecting = depsDetecting;
-          depsDetecting = false;
-          const returnValue = getter();
-          depsDetecting = prevDepsDetecting;
-          target[Symbol.for(key)] = returnValue;
+          return target[Symbol.for(key)];
+        },
+      });
 
-          return returnValue;
-        }
-
-        return target[Symbol.for(key)];
-      },
-    });
-
-    return proxyToInstance;
-  }
-
-  reactiveStore.prototype = target.prototype;
-
-  return reactiveStore;
+      return proxyToInstance;
+    }
+  };
 }
 
