@@ -1,6 +1,5 @@
 
 const listeners = new WeakMap();
-const observableSymbol = Symbol('observableSymbol');
 
 let depsDetecting = false;
 let deps = [];
@@ -19,8 +18,8 @@ function subscribe(store, property, listener) {
 }
 
 function subscribeMultiple(deps, listener) {
-  deps.forEach(({ store, property }) => {
-    subscribe(store, property, listener);
+  deps.forEach(({ store, key }) => {
+    subscribe(store, key, listener);
   });
 }
 
@@ -36,8 +35,8 @@ function unsubscribe(store, property, listener) {
 }
 
 function unsubscribeMultiple(deps, listener) {
-  deps.forEach(({ store, property }) => {
-    unsubscribe(store, property, listener);
+  deps.forEach(({ store, key }) => {
+    unsubscribe(store, key, listener);
   });
 }
 
@@ -56,7 +55,6 @@ function getFunctionDeps(f) {
   deps = [];
   depsDetecting = true;
   f();
-  depsDetecting = false;
 
   const newDeps = deps;
 
@@ -82,7 +80,6 @@ function getGetter(target, key) {
   return descriptor.get.bind(target);
 }
 
-// ToDo Rethink this function
 export function notify(f, callback) {
   const deps = getFunctionDeps(f);
   subscribeMultiple(deps, callback);
@@ -97,15 +94,11 @@ export function autorun(f) {
   subscribeMultiple(deps, f);
 
   return () => {
-    unsubscribe(deps, f);
+    unsubscribeMultiple(deps, f);
   };
 }
 
 export function store(target) {
-  if (!target[observableSymbol]) {
-    return target;
-  }
-
   function reactiveStore(...args) {
     const instance = target.apply(this, args);
 
@@ -115,37 +108,36 @@ export function store(target) {
         emit(target, key);
       },
       get(target, key) {
-        if (isGetter(target, key)) {
-          // Important pass proxy to spy!
-          const getter = getGetter(proxyToInstance, key);
-          if (depsDetecting) {
-            deps.push({ store: target, key });
-            notify(
-              getter,
-              () => {
-                console.log('UPDATE CACHE');
-                target[Symbol.for(key)] = getter();
-                emit(target, key);
-              },
-            );
-
-            // ToDo return cached value
-            const prevDepsDetecting = depsDetecting;
-            depsDetecting = false;
-            const returnValue = getter();
-            depsDetecting = prevDepsDetecting;
-            target[Symbol.for(key)] = returnValue;
-
-            return returnValue;
-          }
-
-          return target[Symbol.for(key)];
-        }
         if (depsDetecting) {
           deps.push({ store: target, key });
         }
 
-        return target[key];
+        if (!isGetter(target, key)) {
+          return target[key];
+        }
+
+        // Important pass proxy to spy!
+        const getter = getGetter(proxyToInstance, key);
+        if (depsDetecting) {
+          notify(
+            getter,
+            () => {
+              console.log('UPDATE CACHE');
+              target[Symbol.for(key)] = getter();
+              emit(target, key);
+            },
+          );
+
+          const prevDepsDetecting = depsDetecting;
+          depsDetecting = false;
+          const returnValue = getter();
+          depsDetecting = prevDepsDetecting;
+          target[Symbol.for(key)] = returnValue;
+
+          return returnValue;
+        }
+
+        return target[Symbol.for(key)];
       },
     });
 
@@ -153,14 +145,7 @@ export function store(target) {
   }
 
   reactiveStore.prototype = target.prototype;
+
   return reactiveStore;
-}
-
-export function observable(target, key) {
-  if (!target.constructor[observableSymbol]) {
-    target.constructor[observableSymbol] = [];
-  }
-
-  target.constructor[observableSymbol].push(key);
 }
 

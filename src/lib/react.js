@@ -1,25 +1,24 @@
-// ToDo observer
-
 import React, { PureComponent, Children, PropTypes } from 'react';
 
 import { notify } from './index';
 
-export function observer(target) {
-  function observerTarget(...args) {
-    const instance = target.apply(this, args) || this;
+export function observer(Target) {
+  return class extends Target {
 
-    notify(
-      instance.render.bind(instance),
-      () => {
-        instance.forceUpdate();
-      },
-    );
+    constructor(...args) {
+      super(...args);
+      this._unsubscribe = notify(
+        this.render.bind(this),
+        this.forceUpdate.bind(this),
+      );
+    }
 
-    return instance;
-  }
+    componentWillUnmount() {
+      this._unsubscribe();
+      super.componentWillUnmount();
+    }
 
-  observerTarget.prototype = target.prototype;
-  return observerTarget;
+  };
 }
 
 type TProps = {

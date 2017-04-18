@@ -3,14 +3,14 @@
 import React, { Component } from 'react';
 import { View, Text, TextInput } from 'react-native';
 
-import { store, observable } from '../lib/index';
+import { store } from '../lib/index';
 import { Provider, inject, observer } from '../lib/react';
 
 @store
 class Xyz {
 
-  @observable abc = 'default';
-  @observable cba = 'default2';
+  abc = 'default';
+  cba = 'default2';
 
   get sum() {
     return `SUM = ${this.cba}`;
